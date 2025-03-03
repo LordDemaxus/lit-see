@@ -3,6 +3,44 @@ from bs4 import BeautifulSoup
 import ebooklib
 import requests
 
+def search_book(search_term):
+    # Construct the search URL
+    search_url = f"https://www.gutenberg.org/ebooks/search/?query={'+'.join(search_term.lower().split(' '))}&submit_search=Go%21"
+
+    response = requests.get(search_url)
+
+    # Check if request was successful
+    if response.status_code != 200:
+        print("Failed to access the webpage")
+        return
+
+    # Parse the HTML content
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    book_link = soup.find('li', class_='booklink')
+    
+    if not book_link:
+        print("No books found on the page")
+        return
+
+    # Get the book's specific page URL
+    book_url = "https://www.gutenberg.org" + book_link.find('a')['href']
+    book_response = requests.get(book_url)
+    book_soup = BeautifulSoup(book_response.content, 'html.parser')
+    download_link = book_soup.find('a', string=lambda text: text and 'EPUB3' in text.upper())
+    if not download_link:
+        download_link = book_soup.find('a', string=lambda text: text and 'EPUB' in text.upper())
+        if not download_link:
+            print("No epub version exists for this book")
+            return
+    file_url = "https://www.gutenberg.org" + download_link['href']
+    book_content = requests.get(file_url)
+    temp_file = f"{'_'.join(search_term.split(' '))}.epub"
+    with open(temp_file, 'wb') as file:
+        file.write(book_content.content)
+    print(f"EPUB downloaded successfully as '{temp_file}'")
+    return(f"{temp_file}")
+
 def extract_book_from_epub(filename):
     """Extract the text of a book from an epub file and return it"""
     book = epub.read_epub(filename)
