@@ -71,6 +71,12 @@ async def analyze_book(book_id: str, db: Session = Depends(get_db)):
     db_book = db.query(Book).filter(Book.id == book_id).first()
     if db_book:
         text = db_book.text
+        #Analyze Sentiment
+        sentiment_score = analyzer.sentiment_analyzer(text)
+        db_book.sentiment_score = sentiment_score
+        db.commit()
+        db.refresh(db_book)
+        #Analyze characters
         extract_characters = analyzer.extract_characters(text)
         characters = [Character(name=character, book_id=book_id, important=extract_characters[character]>0.1) for character in extract_characters]
         db.bulk_save_objects(characters)

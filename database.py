@@ -17,6 +17,7 @@ class Book(Base):
     author = Column(String(256), index=True)
     text = Column(Text)
     sentiment_score = Column(Float, nullable=True)
+    #Add keyword finder functionality
     keywords = Column(Text, nullable=True)
     characters = relationship("Character", back_populates="book")
 
