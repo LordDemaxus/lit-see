@@ -55,5 +55,10 @@ async def analyze_book(book_id: str, db: Session = Depends(get_db)):
     if db_book:
         text = db_book.text
         extract_characters = analyzer.extract_characters(text)
-        characters = set(extract_characters)
-        return [character for character in characters]
+        characters = [Character(name=character, book_id=book_id, important=extract_characters[character]>0.1) for character in extract_characters]
+        db.bulk_save_objects(characters)
+        db.commit()
+        db_characters = db.query(Character).filter(Character.book_id == book_id).all()
+        return {"sentiment score": db_book.sentiment_score, "characters": ["IMPORTANT: " + character.name if character.important else character.name for character in db_characters]}
+    else:
+        raise HTTPException(status_code=404, detail="Book not found")
