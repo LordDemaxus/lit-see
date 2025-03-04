@@ -38,7 +38,7 @@ async def upload_book(file: UploadFile=File(...), db: Session = Depends(get_db))
 @app.get("/books")
 def get_all_books(db: Session = Depends(get_db)):
     books = db.query(Book).all()
-    return [{"title": book.title, "author": book.author} for book in books]
+    return [{"title": book.title, "author": book.author, "id": book.id} for book in books]
 
 @app.get("/books/{book_id}")
 def get_book(book_id: str, db: Session = Depends(get_db)):
@@ -47,3 +47,13 @@ def get_book(book_id: str, db: Session = Depends(get_db)):
         return {"title": db_book.title, "author": db_book.author}
     else:
         raise HTTPException(status_code=404, detail="Book not found")
+
+
+@app.get("/analyze/{book_id}")
+async def analyze_book(book_id: str, db: Session = Depends(get_db)):
+    db_book = db.query(Book).filter(Book.id == book_id).first()
+    if db_book:
+        text = db_book.text
+        extract_characters = analyzer.extract_characters(text)
+        characters = set(extract_characters)
+        return [character for character in characters]
