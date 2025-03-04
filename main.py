@@ -85,3 +85,12 @@ async def analyze_book(book_id: str, db: Session = Depends(get_db)):
         return {"sentiment score": db_book.sentiment_score, "characters": ["IMPORTANT: " + character.name if character.important else character.name for character in db_characters]}
     else:
         raise HTTPException(status_code=404, detail="Book not found")
+
+@app.get("/summarize/{book_id}")
+async def summarize_book(book_id: str, db: Session = Depends(get_db)):
+    db_book = db.query(Book).filter(Book.id == book_id).first()
+    if db_book:
+        text = db_book.text
+        return {f"summary: {analyzer.summarize_text(text)}"}
+    else:
+        raise HTTPException(status_code=404, detail="Book not found")
