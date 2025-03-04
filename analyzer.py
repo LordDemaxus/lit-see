@@ -1,8 +1,11 @@
 import nltk
+from collections import Counter
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.sentiment import SentimentIntensityAnalyzer
-from collections import Counter
+
+from transformers import pipeline
+
 import spacy
 
 spacy.require_gpu()
@@ -41,3 +44,8 @@ def extract_characters(text):
     min_freq = min(character_count.values()) if character_count else 1
     importance_score = lambda count: (count - min_freq) / (max_freq - min_freq) if max_freq != min_freq else 1
     return {character: importance_score(count) for character, count in sorted_characters}
+
+def summarize_text(text):
+    summarizer = pipeline("summarization", model="facebook/distilbart-cnn-12-6")
+    summary = summarizer(text, max_length=200, min_length=50, do_sample=False)
+    return summary[0]['summary_text']
