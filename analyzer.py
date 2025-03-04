@@ -1,6 +1,7 @@
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+from nltk.sentiment import SentimentIntensityAnalyzer
 from collections import Counter
 import spacy
 
@@ -9,6 +10,7 @@ nlp = spacy.load("en_core_web_trf")
 
 nltk.download("punkt")
 nltk.download("stopwords")
+nltk.download('vader_lexicon')
 
 exclude_characters = {"gutenberg"}
 
@@ -17,6 +19,13 @@ def clean_text(text):
     words = word_tokenize(text)
     words = [word.lower() for word in words if word.isalnum() and word not in set(stopwords.words("english"))]
     return " ".join(words)
+
+def sentiment_analyzer(text):
+    """Cleans text and returns it for word analysis functions."""
+    paragraphs = text.split('\n')
+    Analyzer = SentimentIntensityAnalyzer()
+    sentiment_score = sum([Analyzer.polarity_scores(para)['compound'] for para in paragraphs]) / len(paragraphs)
+    return(sentiment_score)
 
 def extract_characters(text):
     """Recognize and extract characters and sort them by importance_score which is a normalized frequency function.
