@@ -1,6 +1,7 @@
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+from collections import Counter
 import spacy
 
 spacy.require_gpu()
@@ -17,4 +18,10 @@ def clean_text(text):
 
 def extract_characters(text):
     doc = nlp(text)
-    return [ent.text for ent in doc.ents if ent.label_ == "PERSON" and ent.text.lower() not in exclude_characters]
+    characters = [ent.text for ent in doc.ents if ent.label_ == "PERSON" and ent.text.lower() not in exclude_characters]
+    character_count = Counter(characters)
+    sorted_characters = character_count.most_common()
+    max_freq = max(character_count.values()) if character_count else 1
+    min_freq = min(character_count.values()) if character_count else 1
+    importance_score = lambda count: (count - min_freq) / (max_freq - min_freq)
+    return {character: importance_score(count) for character, count in sorted_characters}
