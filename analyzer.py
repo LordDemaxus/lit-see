@@ -8,15 +8,22 @@ spacy.require_gpu()
 nlp = spacy.load("en_core_web_trf")
 
 nltk.download("punkt")
+nltk.download("stopwords")
 
 exclude_characters = {"gutenberg"}
 
 def clean_text(text):
+    """Cleans text and returns it for word analysis functions."""
     words = word_tokenize(text)
-    words = [word.lower() for word in words if word.isalnum()]
+    words = [word.lower() for word in words if word.isalnum() and word not in set(stopwords.words("english"))]
     return " ".join(words)
 
 def extract_characters(text):
+    """Recognize and extract characters and sort them by importance_score which is a normalized frequency function.
+
+    TODO: * Use sentiment analysis for sentences in which each character appears in as weights to better determine importance of character 
+          * Remove redundant characters added due to missing last names eg. Tom and Tom Buchanan in The Great Gatsby
+    """
     doc = nlp(text)
     characters = [ent.text for ent in doc.ents if ent.label_ == "PERSON" and ent.text.lower() not in exclude_characters]
     character_count = Counter(characters)

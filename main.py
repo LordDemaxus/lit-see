@@ -11,6 +11,10 @@ app = FastAPI()
 
 @app.post("/upload_pg_book/")
 async def upload_book_from_pg(search_term: str, db: Session = Depends(get_db)):
+    """"Upload a book from Project Gutenberg if it exists.
+
+    NOTE: For now only supports the getting the first book found from Project Gutenberg for that search term
+    """
     book_path = searcher.search_book(search_term)
     if book_path:
         contents = searcher.extract_book_from_epub(book_path)
@@ -25,6 +29,10 @@ async def upload_book_from_pg(search_term: str, db: Session = Depends(get_db)):
 
 @app.post("/upload_book/")
 async def upload_book(file: UploadFile=File(...), db: Session = Depends(get_db)):
+    """"Upload a book from local files.
+
+    NOTE: For now only supports file upload from my Downloads folder
+    """
     if file.content_type == 'application/epub+zip':
         contents = searcher.extract_book_from_epub(f"../../Downloads/{file.filename}")
         new_book = Book(title=contents['title'], author=contents['author'], text=contents['text'])
@@ -37,11 +45,16 @@ async def upload_book(file: UploadFile=File(...), db: Session = Depends(get_db))
     
 @app.get("/books")
 def get_all_books(db: Session = Depends(get_db)):
+    """"View info for all books in the database."""
     books = db.query(Book).all()
     return [{"title": book.title, "author": book.author, "id": book.id} for book in books]
 
 @app.get("/books/{book_id}")
 def get_book(book_id: str, db: Session = Depends(get_db)):
+    """"View info for a specific book using book id.
+
+    TODO: Would be better to access books with book name rather than book id (need to account for multiple books with same name and multiple versions of the same book)
+    """
     db_book = db.query(Book).filter(Book.id == book_id).first()
     if db_book:
         return {"title": db_book.title, "author": db_book.author}
@@ -51,6 +64,10 @@ def get_book(book_id: str, db: Session = Depends(get_db)):
 
 @app.get("/analyze/{book_id}")
 async def analyze_book(book_id: str, db: Session = Depends(get_db)):
+    """Analyze book text and add analyzed info to database.
+
+    TODO: Add genre and archetype (for all characters maked important) classification and other types of NLP text analysis
+    """
     db_book = db.query(Book).filter(Book.id == book_id).first()
     if db_book:
         text = db_book.text
