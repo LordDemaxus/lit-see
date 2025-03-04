@@ -23,5 +23,5 @@ def extract_characters(text):
     sorted_characters = character_count.most_common()
     max_freq = max(character_count.values()) if character_count else 1
     min_freq = min(character_count.values()) if character_count else 1
-    importance_score = lambda count: (count - min_freq) / (max_freq - min_freq)
+    importance_score = lambda count: (count - min_freq) / (max_freq - min_freq) if max_freq != min_freq else 1
     return {character: importance_score(count) for character, count in sorted_characters}
