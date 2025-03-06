@@ -1,8 +1,6 @@
 from fastapi import FastAPI, File, UploadFile, Depends, HTTPException
-from pydantic import BaseModel
-from pydantic import BaseModel, HttpUrl
 from database import *
-import analyzer, searcher
+import analyzer, searcher, security
 import os
 import requests
 from bs4 import BeautifulSoup
@@ -10,7 +8,7 @@ from bs4 import BeautifulSoup
 app = FastAPI()
 
 @app.post("/upload_pg_book/")
-async def upload_book_from_pg(search_term: str, db: Session = Depends(get_db)):
+async def upload_book_from_pg(search_term: str, db: Session = Depends(get_db), user: str = Depends(security.get_current_user)):
     """"Upload a book from Project Gutenberg if it exists.
 
     NOTE: For now only supports the getting the first book found from Project Gutenberg for that search term
@@ -23,12 +21,12 @@ async def upload_book_from_pg(search_term: str, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(new_book)
         os.remove(book_path)
-        return {f"message: {contents['title']} by {contents['author']} has been uploaded"}
+        return {f"message: {contents['title']} by {contents['author']} has been uploaded by {user}"}
     else:
         raise HTTPException(status_code=404, detail="Book can't be found")
 
 @app.post("/upload_book/")
-async def upload_book(file: UploadFile=File(...), db: Session = Depends(get_db)):
+async def upload_book(file: UploadFile=File(...), db: Session = Depends(get_db), user: str = Depends(security.get_current_user)):
     """"Upload a book from local files.
 
     NOTE: For now only supports file upload from my Downloads folder
@@ -39,7 +37,7 @@ async def upload_book(file: UploadFile=File(...), db: Session = Depends(get_db))
         db.add(new_book)
         db.commit()
         db.refresh(new_book)
-        return {f"message: {contents['title']} by {contents['author']} has been uploaded"}
+        return {f"message: {contents['title']} by {contents['author']} has been uploaded by {user}"}
     else:
         raise HTTPException(status_code=404, detail="Wrong file type sent")
     
@@ -94,3 +92,25 @@ async def summarize_book(book_id: str, db: Session = Depends(get_db)):
         return {f"summary: {analyzer.summarize_text(text)}"}
     else:
         raise HTTPException(status_code=404, detail="Book not found")
+
+@app.post("/signup")
+def sign_up(username: str, password: str, db: Session = Depends(get_db)):
+    existing_user = db.query(User).filter(User.username == username).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already taken")
+    hashed_password = security.hash_password(password)
+    user = User(username=username, hashed_password=hashed_password)
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {"message": "User created successfully"}
+
+@app.post("/login")
+def login(username: str = str, password: str = str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user or not security.verify_password(password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    token = security.create_access_token({"sub": user.username})
+    return {"access_token": token, "token_type": "bearer"}
