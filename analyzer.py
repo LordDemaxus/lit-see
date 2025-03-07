@@ -4,7 +4,12 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.sentiment import SentimentIntensityAnalyzer
 
-from transformers import pipeline
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.3"
+access_token = "custom_token"
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, token=access_token)
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, token=access_token)
 
 import spacy
 
@@ -45,7 +50,8 @@ def extract_characters(text):
     importance_score = lambda count: (count - min_freq) / (max_freq - min_freq) if max_freq != min_freq else 1
     return {character: importance_score(count) for character, count in sorted_characters}
 
-def summarize_text(text):
-    summarizer = pipeline("summarization", model="facebook/distilbart-cnn-12-6")
-    summary = summarizer(text, max_length=200, min_length=50, do_sample=False)
-    return summary[0]['summary_text']
+async def summarize_text(text):
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=1024)
+    with torch.no_grad():
+        outputs = model.generate(**inputs, max_length=300)
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
