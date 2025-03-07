@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Text, Float, Fore
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:password@localhost:5432/lit_analysis"
+SQLALCHEMY_DATABASE_URL = "postgresql://postgres:Monkey12!@localhost:5432/lit_analysis"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_size=5, max_overflow=10)
 
