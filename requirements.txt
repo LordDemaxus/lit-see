@@ -1,0 +1,16 @@
+fastapi[standard]>=0.113.0,<0.116.0
+pydantic>=2.7.0,<3.0.0
+sqlalchemy>=2.0.0<3.0.0
+nltk==3.9.1
+spacy==3.8.3
+spacy-curated-transformers==0.3.0
+spacy-legacy==3.0.12
+spacy-loggers==1.0.5
+sumy==0.11.0
+torch==2.0.1
+torchaudio==2.0.2
+torchvision==0.15.2
+transformers==4.49.0
+EbookLib==0.18
+PyJWT==2.10.1
+psycopg2==2.9.10
