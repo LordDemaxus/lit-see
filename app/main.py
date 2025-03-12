@@ -76,7 +76,7 @@ async def analyze_book(book_id: str, db: Session = Depends(get_db)):
         db.refresh(db_book)
         #Analyze characters
         extract_characters = analyzer.extract_characters(text)
-        characters = [Character(name=character, book_id=book_id, important=extract_characters[character]>0.1) for character in extract_characters]
+        characters = [Character(name=character, book_id=book_id, aliases=",".join(extract_characters[character][1]), important=extract_characters[character][0]>0.1) for character in extract_characters]
         db.bulk_save_objects(characters)
         db.commit()
         db_characters = db.query(Character).filter(Character.book_id == book_id).all()

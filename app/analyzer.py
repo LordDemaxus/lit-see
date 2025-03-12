@@ -6,18 +6,22 @@ from nltk.sentiment import SentimentIntensityAnalyzer
 
 import torch
 import ollama
+from sentence_transformers import SentenceTransformer, util
 
 
 import spacy
 
 spacy.require_gpu()
 nlp = spacy.load("en_core_web_trf")
+embedder = SentenceTransformer("all-mpnet-base-v2")
 
 nltk.download("punkt")
 nltk.download("stopwords")
 nltk.download('vader_lexicon')
 
-exclude_characters = {"gutenberg"}
+EXCLUDE_CHARACTERS = {"gutenberg"}
+MAX_CHUNK = 2000
+
 
 def clean_text(text):
     """Cleans text and returns it for word analysis functions."""
@@ -39,13 +43,25 @@ def extract_characters(text):
           * Remove redundant characters added due to missing last names eg. Tom and Tom Buchanan in The Great Gatsby
     """
     doc = nlp(text)
-    characters = [ent.text for ent in doc.ents if ent.label_ == "PERSON" and ent.text.lower() not in exclude_characters]
+    characters = [ent.text for ent in doc.ents if ent.label_ == "PERSON" and ent.text.lower() not in EXCLUDE_CHARACTERS]
+    character_embeddings = embedder.encode(characters, convert_to_tensor=True)
+    aliases = defaultdict(set)
+    merged = set()
+    for i, ent1 in enumerate(characters):
+        if ent1 in merged:
+            continue
+        for j, ent2 in enumerate(characters):
+            similarity = util.pytorch_cos_sim(character_embeddings[i], character_embeddings[j]).item()
+            if similarity > 0.6:
+                aliases[ent1].add(ent2)
+                characters[j] = ent1
+        merged.add(ent1)
     character_count = Counter(characters)
     sorted_characters = character_count.most_common()
     max_freq = max(character_count.values()) if character_count else 1
     min_freq = min(character_count.values()) if character_count else 1
     importance_score = lambda count: (count - min_freq) / (max_freq - min_freq) if max_freq != min_freq else 1
-    return {character: importance_score(count) for character, count in sorted_characters}
+    return {character: [importance_score(count), aliases[character]] for character, count in sorted_characters}
 
 def split_text_into_chunks(text, chunk_size=2000):
     """Splits text into overlapping chunks to preserve context."""
