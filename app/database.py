@@ -36,6 +36,7 @@ class Character(Base):
     name = Column(String(256), index=True)
     book_id = Column(Integer, ForeignKey('books.id'), index=True)
     book = relationship("Book", back_populates="characters")
+    aliases = Column(Text)
     important = Column(Boolean)
 
 class BookChunk(Base):
