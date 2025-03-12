@@ -2,6 +2,7 @@ from ebooklib import epub
 from bs4 import BeautifulSoup
 import ebooklib
 import requests
+import analyzer
 
 def search_book(search_term):
     # Construct the search URL
@@ -68,4 +69,4 @@ def extract_book_from_epub(filename):
             markdown_text = soup.get_text(separator="\n", strip=True)
             markdown_content.append(markdown_text)
     text = "\n\n".join(markdown_content)        
-    return {'title': book.get_metadata('DC', 'title')[0][0], 'author': book.get_metadata('DC', 'creator')[0][0], 'text': text}  # Separate sections with blank lines
+    return {'title': book.get_metadata('DC', 'title')[0][0], 'author': book.get_metadata('DC', 'creator')[0][0], 'text': text, 'tokens': len(analyzer.word_tokenize(text))}  # Separate sections with blank lines

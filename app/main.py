@@ -16,7 +16,7 @@ async def upload_book_from_pg(search_term: str, db: Session = Depends(get_db), u
     book_path = searcher.search_book(search_term)
     if book_path:
         contents = searcher.extract_book_from_epub(book_path)
-        new_book = Book(title=contents['title'], author=contents['author'], text=contents['text'])
+        new_book = Book(title=contents['title'], author=contents['author'], text=contents['text'], tokens=contents['tokens'])
         db.add(new_book)
         db.commit()
         db.refresh(new_book)
@@ -33,7 +33,7 @@ async def upload_book(file: UploadFile=File(...), db: Session = Depends(get_db),
     """
     if file.content_type == 'application/epub+zip':
         contents = searcher.extract_book_from_epub(f"../../Downloads/{file.filename}")
-        new_book = Book(title=contents['title'], author=contents['author'], text=contents['text'])
+        new_book = Book(title=contents['title'], author=contents['author'], text=contents['text'], tokens=contents['tokens'])
         db.add(new_book)
         db.commit()
         db.refresh(new_book)
@@ -89,7 +89,13 @@ async def summarize_book(book_id: str, db: Session = Depends(get_db)):
     db_book = db.query(Book).filter(Book.id == book_id).first()
     if db_book:
         text = db_book.text
-        return {f"summary: {analyzer.summarize_text(text)}"}
+        db_chunk = db.query(BookChunk).filter(BookChunk.book_id == db_book.id).first()
+        if not db_chunk:
+            res = analyzer.create_chunk_embeddings(text, db_book.tokens)
+            book_chunks = [BookChunk(chunk=text, embedding=embedding, book_id=db_book.id) for text, embedding in res]
+            db.bulk_save_objects(book_chunks)
+            db.commit()
+        return {f"summary: {analyzer.summarize_book(text)}"}
     else:
         raise HTTPException(status_code=404, detail="Book not found")
 

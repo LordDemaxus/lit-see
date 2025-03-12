@@ -1,15 +1,12 @@
 import nltk
-from collections import Counter
+from collections import Counter, defaultdict
 from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
+from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.sentiment import SentimentIntensityAnalyzer
 
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.3"
-access_token = "custom_token"
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, token=access_token)
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, token=access_token)
+import ollama
+
 
 import spacy
 
@@ -26,7 +23,7 @@ def clean_text(text):
     """Cleans text and returns it for word analysis functions."""
     words = word_tokenize(text)
     words = [word.lower() for word in words if word.isalnum() and word not in set(stopwords.words("english"))]
-    return " ".join(words)
+    return words
 
 def sentiment_analyzer(text):
     """Cleans text and returns it for word analysis functions."""
@@ -50,8 +47,45 @@ def extract_characters(text):
     importance_score = lambda count: (count - min_freq) / (max_freq - min_freq) if max_freq != min_freq else 1
     return {character: importance_score(count) for character, count in sorted_characters}
 
-async def summarize_text(text):
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=1024)
-    with torch.no_grad():
-        outputs = model.generate(**inputs, max_length=300)
-    return tokenizer.decode(outputs[0], skip_special_tokens=True)
+def split_text_into_chunks(text, chunk_size=2000):
+    """Splits text into overlapping chunks to preserve context."""
+    sentences = sent_tokenize(text)
+    chunks = []
+    current_chunk = []
+    current_token_count = 0
+    for sentence in sentences:
+        sentence_token_count = len(word_tokenize(sentence))  # Token count per sentence
+        if current_token_count + sentence_token_count > chunk_size:
+            # Add current chunk to chunks list and reset for the next chunk
+            chunks.append(" ".join(current_chunk))
+            current_chunk = [sentence]  # Start a new chunk with the current sentence
+            current_token_count = sentence_token_count
+        else:
+            # Add the sentence to the current chunk
+            current_chunk.append(sentence)
+            current_token_count += sentence_token_count
+    if current_chunk:
+        chunks.append(" ".join(current_chunk))
+
+    return chunks
+
+
+def summarize_text(text):
+    prompt = f"Summarize the following text:\n\n{text}\n\nSummary:"
+    outputs = ollama.chat(model="mistral:7b-instruct-v0.3-q4_K_M", messages=[{"role": "user", "content": prompt}])
+    return outputs["message"]["content"].strip()
+
+def summarize_book(text, chunk_size=2000):
+    chunks = split_text_into_chunks(text, chunk_size=chunk_size)
+
+    summaries = [summarize_text(chunk) for chunk in chunks]
+    final_summary = " ".join(summaries)
+    if len(final_summary.split()) > 200:
+        final_summary = summarize_book(final_summary)
+    return final_summary
+
+def create_chunk_embeddings(text, total_tokens):
+    chunk_size = max(MAX_CHUNK, total_tokens / 20)
+    chunks = split_text_into_chunks(text, chunk_size=chunk_size)
+    embeddings = embedder.encode(chunks, convert_to_tensor=True)
+    return zip(chunks, embeddings.tolist())
