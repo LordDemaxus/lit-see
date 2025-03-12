@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String, Text, Float, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
+from pgvector.sqlalchemy import Vector
 
 SQLALCHEMY_DATABASE_URL = "postgresql://postgres:Monkey12!@localhost:5432/lit_analysis"
 
@@ -25,7 +26,9 @@ class Book(Base):
     sentiment_score = Column(Float, nullable=True)
     #Add keyword finder functionality
     keywords = Column(Text, nullable=True)
+    tokens = Column(Integer)
     characters = relationship("Character", back_populates="book")
+    chunks = relationship("BookChunk", back_populates="book")
 
 class Character(Base):
     __tablename__ = 'characters'
@@ -34,6 +37,14 @@ class Character(Base):
     book_id = Column(Integer, ForeignKey('books.id'), index=True)
     book = relationship("Book", back_populates="characters")
     important = Column(Boolean)
+
+class BookChunk(Base):
+    __tablename__ = 'chunks'
+    id = Column(Integer, primary_key=True, index=True)
+    book_id = Column(Integer, ForeignKey('books.id'), index=True)
+    book = relationship("Book", back_populates="chunks")
+    chunk = Column(Text)
+    embedding = Column(Vector(768))
 
 Base.metadata.create_all(bind=engine)
 
