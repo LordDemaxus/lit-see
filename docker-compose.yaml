@@ -1,0 +1,64 @@
+services:
+  db:
+    image: postgres
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Monkey12!
+      POSTGRES_DB: lit_analysis
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data  
+    networks:
+      - mynetwork
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    pull_policy: always
+    tty: true
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_volume:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+
+  fastapi_app:
+    build: .
+    container_name: fastapi_app
+    depends_on:
+      - db
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      DATABASE_URL: "postgresql://postgres:Monkey12!@db:5432/lit_analysis"
+    ports:
+      - "8000:8000"
+    networks:
+      - mynetwork
+
+
+volumes:
+  pgdata:
+    driver: local
+  ollama_volume:
+    name: ollama_volume
+
+networks:
+  mynetwork:
+    driver: bridge

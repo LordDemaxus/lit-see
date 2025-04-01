@@ -28,7 +28,7 @@ class Book(Base):
     keywords = Column(Text, nullable=True)
     tokens = Column(Integer)
     characters = relationship("Character", back_populates="book")
-    chunks = relationship("BookChunk", back_populates="book")
+   # chunks = relationship("BookChunk", back_populates="book")
 
 class Character(Base):
     __tablename__ = 'characters'
@@ -39,13 +39,13 @@ class Character(Base):
     aliases = Column(Text)
     important = Column(Boolean)
 
-class BookChunk(Base):
+'''class BookChunk(Base):
     __tablename__ = 'chunks'
     id = Column(Integer, primary_key=True, index=True)
     book_id = Column(Integer, ForeignKey('books.id'), index=True)
     book = relationship("Book", back_populates="chunks")
     chunk = Column(Text)
-    embedding = Column(Vector(768))
+    embedding = Column(Vector(768))'''
 
 Base.metadata.create_all(bind=engine)
 
