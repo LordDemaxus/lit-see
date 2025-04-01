@@ -8,6 +8,9 @@ import torch
 import ollama
 from sentence_transformers import SentenceTransformer, util
 
+from openai import OpenAI
+client = OpenAI()
+
 
 import spacy
 
@@ -15,7 +18,7 @@ spacy.require_gpu()
 nlp = spacy.load("en_core_web_trf")
 embedder = SentenceTransformer("all-mpnet-base-v2")
 
-nltk.download("punkt")
+nltk.download("punkt_tab")
 nltk.download("stopwords")
 nltk.download('vader_lexicon')
 
@@ -63,7 +66,7 @@ def extract_characters(text):
     importance_score = lambda count: (count - min_freq) / (max_freq - min_freq) if max_freq != min_freq else 1
     return {character: [importance_score(count), aliases[character]] for character, count in sorted_characters}
 
-def split_text_into_chunks(text, chunk_size=2000):
+def split_text_into_chunks(text, chunk_size=2000, overlap_size=300):
     """Splits text into overlapping chunks to preserve context."""
     sentences = sent_tokenize(text)
     chunks = []
@@ -74,29 +77,29 @@ def split_text_into_chunks(text, chunk_size=2000):
         if current_token_count + sentence_token_count > chunk_size:
             # Add current chunk to chunks list and reset for the next chunk
             chunks.append(" ".join(current_chunk))
-            current_chunk = [sentence]  # Start a new chunk with the current sentence
-            current_token_count = sentence_token_count
+            overlap_tokens = " ".join(current_chunk)[-overlap_size:].split()
+            current_chunk = overlap_tokens + [sentence]
+            current_token_count = len(overlap_tokens) + sentence_token_count
         else:
             # Add the sentence to the current chunk
             current_chunk.append(sentence)
             current_token_count += sentence_token_count
     if current_chunk:
         chunks.append(" ".join(current_chunk))
-
     return chunks
 
 
-def summarize_text(text):
-    prompt = f"Summarize the following text:\n\n{text}\n\nSummary:"
-    outputs = ollama.chat(model="mistral:7b-instruct-v0.3-q4_K_M", messages=[{"role": "user", "content": prompt}])
-    return outputs["message"]["content"].strip()
+def summarize_text(text, query="Summarize the following text."):
+    prompt = f"{query}. Structure it in this way - Title+author, Summary of plot (note any details on time and place), themes:\n\n{text}\n\nSummary:"
+    response = client.responses.create( model="gpt-4o-mini", input=prompt)
+    return response.output_text
 
-def summarize_book(text, chunk_size=2000):
+def summarize_book(text, chunk_size=20000):
     chunks = split_text_into_chunks(text, chunk_size=chunk_size)
 
     summaries = [summarize_text(chunk) for chunk in chunks]
     final_summary = " ".join(summaries)
-    if len(final_summary.split()) > 200:
+    if len(word_tokenize(final_summary)) > 1000:
         final_summary = summarize_book(final_summary)
     return final_summary
 

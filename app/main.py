@@ -1,11 +1,31 @@
 from fastapi import FastAPI, File, UploadFile, Depends, HTTPException
+from pydantic import BaseModel
 from database import *
 import analyzer, searcher, security
 import os
-import requests
-from bs4 import BeautifulSoup
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+origins = [
+    "http://localhost:3000",  # Replace with your frontend's URL
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Allows only the frontend origin
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods (GET, POST, OPTIONS, etc.)
+    allow_headers=["*"],  # Allow all headers
+)
+
+class userLogin(BaseModel):
+    username: str
+    password: str
+
+@app.get("/")
+def root():
+    return {"message: Welcome to the NLP Literary Analyzer"}
 
 @app.post("/upload_pg_book/")
 async def upload_book_from_pg(search_term: str, db: Session = Depends(get_db), user: str = Depends(security.get_current_user)):
@@ -89,23 +109,24 @@ async def summarize_book(book_id: str, db: Session = Depends(get_db)):
     db_book = db.query(Book).filter(Book.id == book_id).first()
     if db_book:
         text = db_book.text
-        db_chunk = db.query(BookChunk).filter(BookChunk.book_id == db_book.id).first()
-        if not db_chunk:
-            res = analyzer.create_chunk_embeddings(text, db_book.tokens)
-            book_chunks = [BookChunk(chunk=text, embedding=embedding, book_id=db_book.id) for text, embedding in res]
-            db.bulk_save_objects(book_chunks)
-            db.commit()
+        #NOTE: ADD VECTOR EMBEDDINGS BACK LATER
+        #db_chunk = db.query(BookChunk).filter(BookChunk.book_id == db_book.id).first()
+        #if not db_chunk:
+            #res = analyzer.create_chunk_embeddings(text, db_book.tokens)
+            #book_chunks = [BookChunk(chunk=text, embedding=embedding, book_id=db_book.id) for text, embedding in res]
+            #db.bulk_save_objects(book_chunks)
+            #db.commit()
         return {f"summary: {analyzer.summarize_book(text)}"}
     else:
         raise HTTPException(status_code=404, detail="Book not found")
 
 @app.post("/signup")
-def sign_up(username: str, password: str, db: Session = Depends(get_db)):
-    existing_user = db.query(User).filter(User.username == username).first()
+def sign_up(request: userLogin, db: Session = Depends(get_db)):
+    existing_user = db.query(User).filter(User.username == request.username).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already taken")
-    hashed_password = security.hash_password(password)
-    user = User(username=username, hashed_password=hashed_password)
+    hashed_password = security.hash_password(request.password)
+    user = User(username=request.username, hashed_password=hashed_password)
 
     db.add(user)
     db.commit()
@@ -113,9 +134,9 @@ def sign_up(username: str, password: str, db: Session = Depends(get_db)):
     return {"message": "User created successfully"}
 
 @app.post("/login")
-def login(username: str = str, password: str = str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == username).first()
-    if not user or not security.verify_password(password, user.hashed_password):
+def login(request: userLogin, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == request.username).first()
+    if not user or not security.verify_password(request.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     token = security.create_access_token({"sub": user.username})

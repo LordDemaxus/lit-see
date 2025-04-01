@@ -53,7 +53,10 @@ def extract_book_from_epub(filename):
             # Convert HTML to Markdown format
             for h in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
                 level = int(h.name[1])  # Extract heading level (h1 -> 1, h2 -> 2)
-                h.replace_with(f"{'#' * level} {h.get_text()}\n")
+                if level == 2 and ("gutenberg" in h.get_text() or "Gutenberg" in h.get_text() or "GUTENBERG" in h.get_text()):
+                        h.string = ""
+                else:
+                    h.replace_with(f"{'#' * level} {h.get_text()}\n")
 
             for bold in soup.find_all(["b", "strong"]):
                 bold.replace_with(f"**{bold.get_text()}**")
