@@ -4,7 +4,7 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.sentiment import SentimentIntensityAnalyzer
 
-import torch
+import database
 import ollama
 from sentence_transformers import SentenceTransformer, util
 
@@ -63,8 +63,9 @@ def extract_characters(text):
     sorted_characters = character_count.most_common()
     max_freq = max(character_count.values()) if character_count else 1
     min_freq = min(character_count.values()) if character_count else 1
+    #character_embeddings = embedder.encode([item[0] for item in sorted_characters], convert_to_tensor=True)
     importance_score = lambda count: (count - min_freq) / (max_freq - min_freq) if max_freq != min_freq else 1
-    return {character: [importance_score(count), aliases[character]] for character, count in sorted_characters}
+    return {character: [importance_score(count), aliases[character]] for i, (character, count) in enumerate(sorted_characters)}
 
 def split_text_into_chunks(text, chunk_size=2000, overlap_size=300):
     """Splits text into overlapping chunks to preserve context."""
@@ -89,12 +90,12 @@ def split_text_into_chunks(text, chunk_size=2000, overlap_size=300):
     return chunks
 
 
-def summarize_text(text, query="Summarize the following text."):
-    prompt = f"{query}. Structure it in this way - Title+author, Summary of plot (note any details on time and place), themes:\n\n{text}\n\nSummary:"
+def summarize_text(text):
+    prompt = "Summarize the following text.. Structure it in this way - Title+author, Summary of plot (note any details on time and place), themes:\n\n{text}\n\nSummary:"
     response = client.responses.create( model="gpt-4o-mini", input=prompt)
     return response.output_text
 
-def summarize_book(text, chunk_size=20000):
+def summarize_book(text, chunk_size=2000):
     chunks = split_text_into_chunks(text, chunk_size=chunk_size)
 
     summaries = [summarize_text(chunk) for chunk in chunks]
@@ -104,7 +105,14 @@ def summarize_book(text, chunk_size=20000):
     return final_summary
 
 def create_chunk_embeddings(text, total_tokens):
-    chunk_size = max(MAX_CHUNK, total_tokens / 20)
+    chunk_size = min(MAX_CHUNK, total_tokens / 20)
     chunks = split_text_into_chunks(text, chunk_size=chunk_size)
     embeddings = embedder.encode(chunks, convert_to_tensor=True)
     return zip(chunks, embeddings.tolist())
+
+def summarize_character(character):
+    query_embedding = embedder.encode(f"Tell me about {character} in the story. Include details about personality, physical characterstics, age, and character arc")
+    context = "\n".join(database.get_similar_chunks(query_embedding)())
+    prompt = f"Tell me about {character} from the following context. Structure it this way - Character name, age, physical characteristics, personality, narrative arc from the beginning to the end:\n\n{context}\n\nSummary:"
+    response = client.responses.create( model="gpt-4o-mini", input=prompt)
+    return response.output_text

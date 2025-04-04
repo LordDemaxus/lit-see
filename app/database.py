@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, Float, ForeignKey, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Text, Float, ForeignKey, Boolean, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 from pgvector.sqlalchemy import Vector
@@ -28,24 +28,25 @@ class Book(Base):
     keywords = Column(Text, nullable=True)
     tokens = Column(Integer)
     characters = relationship("Character", back_populates="book")
-   # chunks = relationship("BookChunk", back_populates="book")
+    chunks = relationship("BookChunk", back_populates="book")
 
 class Character(Base):
     __tablename__ = 'characters'
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(256), index=True)
+    #char_embedding = Column(Vector(768))
     book_id = Column(Integer, ForeignKey('books.id'), index=True)
     book = relationship("Book", back_populates="characters")
     aliases = Column(Text)
     important = Column(Boolean)
 
-'''class BookChunk(Base):
+class BookChunk(Base):
     __tablename__ = 'chunks'
     id = Column(Integer, primary_key=True, index=True)
     book_id = Column(Integer, ForeignKey('books.id'), index=True)
     book = relationship("Book", back_populates="chunks")
     chunk = Column(Text)
-    embedding = Column(Vector(768))'''
+    embedding = Column(Vector(768))
 
 Base.metadata.create_all(bind=engine)
 
@@ -55,3 +56,11 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def get_similar_chunks(query_embedding, book_id):
+    db = SessionLocal()
+    results = db.query(
+        BookChunk.chunk,
+        func.cosine_distance(BookChunk.embedding, query_embedding).label('similarity')).order_by('similarity').filter(Book.id == book_id).limit(10).all()
+    return results
