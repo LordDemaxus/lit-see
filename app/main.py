@@ -109,13 +109,12 @@ async def summarize_book(book_id: str, db: Session = Depends(get_db)):
     db_book = db.query(Book).filter(Book.id == book_id).first()
     if db_book:
         text = db_book.text
-        #NOTE: ADD VECTOR EMBEDDINGS BACK LATER
-        #db_chunk = db.query(BookChunk).filter(BookChunk.book_id == db_book.id).first()
-        #if not db_chunk:
-            #res = analyzer.create_chunk_embeddings(text, db_book.tokens)
-            #book_chunks = [BookChunk(chunk=text, embedding=embedding, book_id=db_book.id) for text, embedding in res]
-            #db.bulk_save_objects(book_chunks)
-            #db.commit()
+        db_chunk = db.query(BookChunk).filter(BookChunk.book_id == db_book.id).first()
+        if not db_chunk:
+            res = analyzer.create_chunk_embeddings(text, db_book.tokens)
+            book_chunks = [BookChunk(chunk=text, embedding=embedding, book_id=db_book.id) for text, embedding in res]
+            db.bulk_save_objects(book_chunks)
+            db.commit()
         return {f"summary: {analyzer.summarize_book(text)}"}
     else:
         raise HTTPException(status_code=404, detail="Book not found")
@@ -141,3 +140,20 @@ def login(request: userLogin, db: Session = Depends(get_db)):
 
     token = security.create_access_token({"sub": user.username})
     return {"access_token": token, "token_type": "bearer"}
+
+
+@app.get("/summarize_character/{book_id}/{character}")
+async def summarize_character(book_id: str, character: str, db: Session = Depends(get_db)):
+    db_character = db.query(Character).filter(Book.id == book_id).first()
+    if db_character:
+        db_chunk = db.query(BookChunk).filter(BookChunk.book_id == book_id).first()
+        if not db_chunk:
+            db_book = db.query(Book).filter(Book.id == book_id).first()
+            text = db_book.text
+            res = analyzer.create_chunk_embeddings(text, db_book.tokens)
+            book_chunks = [BookChunk(chunk=text, embedding=embedding, book_id=db_book.id) for text, embedding in res]
+            db.bulk_save_objects(book_chunks)
+            db.commit()
+        return {f"summary: {analyzer.summarize_character(character, book_id)}"}
+    else:
+        raise HTTPException(status_code=404, detail="Book not found")
